@@ -193,6 +193,7 @@ export async function loginUser({ email, password }) {
     }
 
     const { accessToken, refreshToken } = generateTokens(user);
+    console.log(`${user.firstName} ${user.lastName} Logged in`);
     return {
         user: sanitizeUser(user),
         accessToken,
