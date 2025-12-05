@@ -11,8 +11,8 @@ const app = express();
 app.use(express.json());
 app.use(
   cors({
-    origin: ['http://localhost:3000', 
-    'https://stack-from-scratch-backend-production.up.railway.app' ],
+    origin: ['http://localhost:3000',
+      'https://stack-from-scratch.netlify.app/'],
     credentials: true,
   })
 );
