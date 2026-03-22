@@ -98,7 +98,7 @@ def send_otp_controller(db: Session, payload: SendOtpRequest):
     except Exception as exc:
       raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=f"Failed to send OTP email: {str(exc)}",
+        detail=f"Failed to send OTP email",
     )
 
     return {
