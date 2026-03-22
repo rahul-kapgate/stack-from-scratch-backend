@@ -7,6 +7,7 @@ app = FastAPI(title="stack-from-scratch-backend")
 
 @app.get("/")
 def root():
+    print("API is Running")
     return {"message": "API is running"}
 
 
