@@ -4,15 +4,28 @@ from random import randint
 from fastapi import HTTPException, status
 from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
+import jwt
+from jwt import ExpiredSignatureError, InvalidTokenError
 
-from app.core.security import get_password_hash, verify_password
+from app.core.security import (
+    get_password_hash,
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+)
 from app.models.auth import AuthRequest, AuthRequestStatus
 from app.models.user import User
-from app.schemas.auth import SendOtpRequest, VerifyOtpRequest
+from app.schemas.auth import (
+    SendOtpRequest,
+    VerifyOtpRequest,
+    LoginRequest,
+    RefreshTokenRequest,
+)
 from app.services.email_service import send_otp_email
 
 
-OTP_EXPIRY_MINUTES = 10
+OTP_EXPIRY_MINUTES = 5
 MAX_OTP_ATTEMPTS = 5
 
 
@@ -207,4 +220,112 @@ def verify_otp_controller(db: Session, payload: VerifyOtpRequest):
         "message": "OTP verified successfully. User created",
         "user_id": new_user.id,
         "email": new_user.email,
+    }
+
+
+def login_controller(db: Session, payload: LoginRequest):
+    """
+    Login using email OR phone + password.
+    Returns access token and refresh token.
+    """
+
+    user = db.scalar(
+        select(User).where(
+            or_(
+                User.email == payload.identifier,
+                User.phone == payload.identifier,
+            )
+        )
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email/mobile or password",
+        )
+
+    if not verify_password(payload.password, user.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email/mobile or password",
+        )
+
+    token_data = {
+        "sub": str(user.id),
+        "email": user.email,
+        "phone": user.phone,
+    }
+
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
+
+    return {
+        "message": "Login successful",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user_id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "phone": user.phone,
+        "user_type": user.user_type,
+    }
+
+
+def refresh_token_controller(db: Session, payload: RefreshTokenRequest):
+    """
+    Create a new access token using refresh token.
+    """
+
+    try:
+        decoded_payload = decode_token(payload.refresh_token)
+    except ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has expired",
+        )
+    except InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
+
+    if decoded_payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+        )
+
+    user_id = decoded_payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token payload",
+        )
+
+    user = db.scalar(select(User).where(User.id == int(user_id)))
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    new_access_token = create_access_token(
+        {
+            "sub": str(user.id),
+            "email": user.email,
+            "phone": user.phone,
+        }
+    )
+
+    return {
+        "message": "New access token generated successfully",
+        "access_token": new_access_token,
+        "refresh_token": payload.refresh_token,
+        "token_type": "bearer",
+        "user_id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "phone": user.phone,
+        "user_type": user.user_type,
     }
