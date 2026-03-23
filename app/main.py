@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 
 from app.routes.auth import router as auth_router
+from app.routes.password_reset import router as password_reset_router
 
 app = FastAPI(title="stack-from-scratch-backend")
 
@@ -22,3 +23,4 @@ def root():
     return {"message": "API is running"}
 
 app.include_router(auth_router)
+app.include_router(password_reset_router)

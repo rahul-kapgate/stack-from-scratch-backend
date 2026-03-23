@@ -24,7 +24,15 @@ class LoginRequest(BaseModel):
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
+class ForgotPasswordRequest(BaseModel):
+    identifier: str = Field(..., min_length=3, max_length=255)
 
+class ResetPasswordRequest(BaseModel):
+    identifier: str = Field(..., min_length=3, max_length=255)
+    otp: str = Field(..., pattern=r"^\d{6}$")
+    new_password: str = Field(..., min_length=6, max_length=72)
+    confirm_password: str = Field(..., min_length=6, max_length=72)
+    
 class SendOtpResponse(BaseModel):
     message: str
     email: EmailStr
